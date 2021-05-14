@@ -178,6 +178,21 @@ section#mostlyUsedSamples
     template(v-slot:preview)
       vue-timepicker(format="HH:mm:ss")
 
+  //- Fractional Seconds Picker
+  sample-block#fractionalSeconds
+    template(v-slot:title) Fraction Seconds Picker
+    p(slot="description")
+      | You can trigger the fractional seconds picker by adding
+      code SS
+      | or
+      code S
+      | in your format string.
+    template(v-slot:codes)
+      highlight-code(lang="html" data-title="HTML")
+        | &lt;vue-timepicker format="HH:mm:ss:SS"&gt;&lt;/vue-timepicker&gt;
+    template(v-slot:preview)
+      vue-timepicker(format="HH:mm:ss:SS")
+
   //- Customized Interval
   sample-block#interval
     template(v-slot:title) Customized Interval

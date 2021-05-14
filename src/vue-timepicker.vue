@@ -3,20 +3,24 @@ const CONFIG = {
   HOUR_TOKENS: ['HH', 'H', 'hh', 'h', 'kk', 'k'],
   MINUTE_TOKENS: ['mm', 'm'],
   SECOND_TOKENS: ['ss', 's'],
+  FRACTIONAL_SECOND_TOKENS: ['S', 'SS', 'SSS', 'SSSS', 'SSSSS', 'SSSSSS'],
   APM_TOKENS: ['A', 'a'],
-  BASIC_TYPES: ['hour', 'minute', 'second', 'apm']
+  BASIC_TYPES: ['hour', 'minute', 'second', 'fractionalSecond', 'apm']
 }
 
 const DEFAULT_OPTIONS = {
   format: 'HH:mm',
   minuteInterval: 1,
   secondInterval: 1,
+  fractionalSecondInterval: 1,
   hourRange: null,
   minuteRange: null,
   secondRange: null,
+  fractionalSecondRange: null,
   hideDisabledHours: false,
   hideDisabledMinutes: false,
   hideDisabledSeconds: false,
+  hideDisabledFractionalSeconds: false,
   hideDisabledItems: false,
   hideDropdown: false,
   blurDelay: 300,
@@ -31,14 +35,17 @@ export default {
     format: { type: String },
     minuteInterval: { type: [ Number, String ] },
     secondInterval: { type: [ Number, String ] },
+    fractionalSecondInterval: { type: [Number, String ] },
 
     hourRange: { type: Array },
     minuteRange: { type: Array },
     secondRange: { type: Array },
+    fractionalSecondRange: { type: Array },
 
     hideDisabledHours: { type: Boolean, default: false },
     hideDisabledMinutes: { type: Boolean, default: false },
     hideDisabledSeconds: { type: Boolean, default: false },
+    hideDisabledFractionalSeconds: { type: Boolean, default: false },
     hideDisabledItems: { type: Boolean, default: false },
 
     hideClearButton: { type: Boolean, default: false },
@@ -56,6 +63,7 @@ export default {
     hourLabel: { type: String },
     minuteLabel: { type: String },
     secondLabel: { type: String },
+    fractionalSecondLabel: { type: String },
     apmLabel: { type: String },
     amText: { type: String },
     pmText: { type: String },
@@ -86,6 +94,7 @@ export default {
       hours: [],
       minutes: [],
       seconds: [],
+      fractionalSeconds: [],
       apms: [],
 
       isActive: false,
@@ -96,10 +105,12 @@ export default {
       hourType: 'HH',
       minuteType: 'mm',
       secondType: '',
+      fractionalSecondType: '',
       apmType: '',
       hour: '',
       minute: '',
       second: '',
+      fractionalSecond: '',
       apm: '',
       fullValues: undefined,
       bakDisplayTime: undefined,
@@ -143,6 +154,11 @@ export default {
       if (this.isNumber(this.secondInterval)) {
         options.secondInterval = +this.secondInterval
       }
+
+      if (this.isNumber(this.fractionalSecondInterval)) {
+        options.fractionalSecondInterval = +this.fractionalSecondInterval
+      }
+
       // secondInterval failsafe
       if (!options.secondInterval || options.secondInterval < 1 || options.secondInterval > 60) {
         if (this.debugMode) {
@@ -156,6 +172,22 @@ export default {
           options.secondInterval = 60
         } else {
           options.secondInterval = 1
+        }
+      }
+
+      // fractionalSecondInterval failsafe
+      if (!options.fractionalSecondInterval || options.fractionalSecondInterval < 1 || options.fractionalSecondInterval > 999999) {
+        if (this.debugMode) {
+          if (options.fractionalSecondInterval > 999999) {
+            this.debugLog(`"fractional-second-interval" should be less than 999999. Current value is ${this.fractionalSecondInterval}`)
+          } else if (options.secondInterval === 0 || options.secondInterval < 1) {
+            this.debugLog(`"fractional-second-interval" should be NO less than 1. Current value is ${this.fractionalSecondInterval}`)
+          }
+        }
+        if (options.fractionalSecondInterval === 0) {
+          options.fractionalSecondInterval = 100
+        } else {
+          options.fractionalSecondInterval = 1
         }
       }
 
@@ -180,6 +212,13 @@ export default {
         }
       }
 
+      if (this.fractionalSecondRange && Array.isArray(this.fractionalSecondRange)) {
+        options.fractionalSecondRange = JSON.parse(JSON.stringify(this.fractionalSecondRange))
+        if (!this.fractionalSecondRange.length && this.debugMode) {
+          this.debugLog('The "fractional-second-range" array is empty (length === 0)')
+        }
+      }
+
       if (this.hideDisabledItems) {
         options.hideDisabledItems = true
       }
@@ -192,6 +231,10 @@ export default {
       }
       if (this.hideDisabledSeconds || this.hideDisabledItems) {
         options.hideDisabledSeconds = true
+      }
+
+      if (this.hideDisabledFractionalSeconds || this.hideDisabledItems) {
+        options.hideDisabledFractionalSeconds = true
       }
 
       if (this.hideDropdown) {
@@ -236,6 +279,7 @@ export default {
         hour: !!this.hourType,
         minute: !!this.minuteType,
         second: !!this.secondType,
+        fractionalSecond: !!this.fractionalSecondType,
         apm: !!this.apmType,
         types: typesInUse || [],
         tokens: tokensInUse || []
@@ -252,6 +296,9 @@ export default {
       }
       if (this.second && this.secondType) {
         formatString = formatString.replace(new RegExp(this.secondType, 'g'), this.second)
+      }
+      if (this.fractionalSecond && this.fractionalSecondType) {
+        formatString = formatString.replace(new RegExp(this.fractionalSecondType, 'g'), this.fractionalSecond)
       }
       if (this.apm && this.apmType) {
         formatString = formatString.replace(new RegExp(this.apmType, 'g'), this.apm)
@@ -275,6 +322,7 @@ export default {
         (this.inUse.hour && !this.hour) ||
         (this.inUse.minute && !this.minute) ||
         (this.inUse.second && !this.second) ||
+        (this.inUse.fractionalSecond && !this.fractionalSecond) ||
         (this.inUse.apm && !this.apm)
       ) {
         return false
@@ -430,6 +478,12 @@ export default {
       if (!this.opts.secondRange.length) { return [] }
       return this.renderRangeList(this.opts.secondRange, 'second')
     },
+
+    fractionalSecondRangeList () {
+      if (!this.fractionalSecondType || !this.opts.fractionalSecondRange) { return false }
+      if (!this.opts.fractionalSecondRange.length) { return [] }
+      return this.renderRangeList(this.opts.fractionalSecondRange, 'fractionalSecond')
+    },
     
     hourLabelText () {
       return this.hourLabel || this.hourType
@@ -439,6 +493,9 @@ export default {
     },
     secondLabelText() {
       return this.secondLabel || this.secondType
+    },
+    fractionalSecondLabelText() {
+      return this.fractionalSecondLabel || this.fractionalSecondType
     },
     apmLabelText () {
       return this.apmLabel || this.apmType
@@ -525,7 +582,7 @@ export default {
 
     invalidValues () {
       if (this.inputIsEmpty) { return [] }
-      if (!this.restrictedHourRange && !this.minuteRangeList && !this.secondRangeList && this.opts.minuteInterval === 1 && this.opts.secondInterval === 1) { return [] }
+      if (!this.restrictedHourRange && !this.minuteRangeList && !this.secondRangeList && !this.fractionalSecondRangeList && this.opts.minuteInterval === 1 && this.opts.secondInterval === 1 && this.opts.fractionalSecondInterval === 1) { return [] }
 
       const result = []
       if (this.inUse.hour && !this.isEmptyValue(this.hourType, this.hour) && (!this.isValidValue(this.hourType, this.hour) || this.isDisabled('hour', this.hour))) {
@@ -536,6 +593,9 @@ export default {
       }
       if (this.inUse.second && !this.isEmptyValue(this.secondType, this.second) && (!this.isValidValue(this.secondType, this.second) || this.isDisabled('second', this.second) || this.notInInterval('second', this.second))) {
         result.push('second')
+      }
+      if (this.inUse.fractionalSecond && !this.isEmptyValue(this.fractionalSecondType, this.fractionalSecond) && (!this.isValidValue(this.fractionalSecondType, this.fractionalSecond) || this.isDisabled('fractionalSecond', this.fractionalSecond) || this.notInInterval('fractionalSecond', this.fractionalSecond))) {
+        result.push('fractionalSecond')
       }
       if (this.inUse.apm && !this.isEmptyValue(this.apmType, this.apm) && (!this.isValidValue(this.apmType, this.apm) || this.isDisabled('apm', this.apm))) {
         result.push('apm')
@@ -571,6 +631,9 @@ export default {
     },
     'opts.secondInterval' (newInteval) {
       this.renderList('second', newInteval)
+    },
+    'opts.fractionalSecondInterval' (newInteval) {
+      this.renderList('fractionalSecond', newInteval)
     },
     value: {
       deep: true,
@@ -611,6 +674,7 @@ export default {
         case 'k':
         case 'm':
         case 's':
+        case 'S':
           if (['h', 'k'].includes(token) && i === 0) {
             return token === 'k' ? '24' : '12'
           }
@@ -618,6 +682,11 @@ export default {
         case 'HH':
         case 'mm':
         case 'ss':
+        case 'SS':
+        case 'SSS': 
+        case 'SSSS': 
+        case 'SSSSS':
+        case 'SSSSSS':
         case 'hh':
         case 'kk':
           if (['hh', 'kk'].includes(token) && i === 0) {
@@ -645,10 +714,11 @@ export default {
       let hourType = this.checkAcceptingType(CONFIG.HOUR_TOKENS, newFormat)
       let minuteType = this.checkAcceptingType(CONFIG.MINUTE_TOKENS, newFormat)
       this.secondType = this.checkAcceptingType(CONFIG.SECOND_TOKENS, newFormat)
+      this.fractionalSecondType = this.checkAcceptingType(CONFIG.FRACTIONAL_SECOND_TOKENS, newFormat)
       this.apmType = this.checkAcceptingType(CONFIG.APM_TOKENS, newFormat)
 
       // Failsafe checking
-      if (!hourType && !minuteType && !this.secondType && !this.apmType) {
+      if (!hourType && !minuteType && !this.secondType && !this.fractionalSecondType && !this.apmType) {
         if (this.debugMode && this.format) {
           this.debugLog(`No valid tokens found in your defined "format" string "${this.format}". Fallback to the default "HH:mm" format.`)
         }
@@ -661,6 +731,7 @@ export default {
       this.hourType ? this.renderHoursList() : this.hours = []
       this.minuteType ? this.renderList('minute') : this.minutes = []
       this.secondType ? this.renderList('second') : this.seconds = []
+      this.fractionalSecondType ? this.renderFractionalSecondList() : this.fractionalSeconds = []
       this.apmType ? this.renderApmList() : this.apms = []
 
       this.$nextTick(() => {
@@ -692,6 +763,14 @@ export default {
         result.push(this.formatValue(isMinute ? this.minuteType : this.secondType, i))
       }
       isMinute ? this.minutes = result : this.seconds = result
+    },
+
+    renderFractionalSecondList () {
+      const fractionalSeconds = []
+      for (let i = 0; i < 100; i++) {
+        fractionalSeconds.push(this.formatValue(this.fractionalSecondType, i))
+      }
+      this.fractionalSeconds = fractionalSeconds
     },
 
     renderApmList () {
@@ -938,6 +1017,12 @@ export default {
       fullValues.mm = this.formatValue('mm', this.minute)
       fullValues.s = this.formatValue('s', this.second)
       fullValues.ss = this.formatValue('ss', this.second)
+      fullValues.S = this.formatValue('S', this.fractionalSecond)
+      fullValues.SS = this.formatValue('SS', this.fractionalSecond)
+      fullValues.SSS = this.formatValue('SSS', this.fractionalSecond)
+      fullValues.SSSS = this.formatValue('SSSS', this.fractionalSecond)
+      fullValues.SSSSS = this.formatValue('SSSSS', this.fractionalSecond)
+      fullValues.SSSSSS = this.formatValue('SSSSSS', this.fractionalSecond)
 
       this.fullValues = fullValues
 
@@ -1003,6 +1088,11 @@ export default {
           return this.isDisabledHour(value)
         case 'minute':
         case 'second':
+          if (!this[`${type}RangeList`]) {
+            return false
+          }
+          return !this[`${type}RangeList`].includes(value)
+        case 'fractionalSecond':
           if (!this[`${type}RangeList`]) {
             return false
           }
@@ -1100,7 +1190,7 @@ export default {
     },
 
     emptyApmSelection () {
-      if (this.doClearApmChecking && this.hour === '' && this.minute === '' && this.second === '') {
+      if (this.doClearApmChecking && this.hour === '' && this.minute === '' && this.second === '' && this.fractionalSecond === '') {
         this.apm = ''
       }
       this.doClearApmChecking = false
@@ -1253,6 +1343,7 @@ export default {
       this.hour = ''
       this.minute = ''
       this.second = ''
+      this.fractionalSecond = ''
       this.apm = ''
 
       if (this.manualInput && this.$refs && this.$refs.input && this.$refs.input.value.length) {
@@ -2123,6 +2214,18 @@ export default {
                   @click="select('second', s)"></li>
             </template>
           </ul>
+          <ul v-if="column === 'fractionalSecond'" :key="column" class="fractionalSeconds" @scroll="keepFocusing">
+            <li class="hint" v-text="fractionalSecondLabelText"></li>
+            <template v-for="(s, sIndex) in fractionalSeconds">
+              <li v-if="!opts.hideDisabledSeconds || (opts.hideDisabledSeconds && !isDisabled('fractionalSecond', s))"
+                  :key="sIndex"
+                  :class="{active: fractionalSecond === s}"
+                  :disabled="isDisabled('fractionalSecond', s)"
+                  :data-key="s"
+                  v-text="s"
+                  @click="select('fractionalSecond', s)"></li>
+            </template>
+          </ul>
           <ul v-if="column === 'apm'" :key="column" class="apms" @scroll="keepFocusing">
             <li class="hint" v-text="apmLabelText"></li>
             <template v-for="(a, aIndex) in apms">
@@ -2208,6 +2311,29 @@ export default {
                   @keydown.down.prevent="nextItem('second', s)"
                   @keydown.left.prevent="toLeftColumn('second')"
                   @keydown.right.prevent="toRightColumn('second')"
+                  @keydown.esc.exact="debounceBlur"
+                  @blur="debounceBlur"
+                  @focus="keepFocusing"></li>
+            </template>
+          </ul>
+          <ul v-if="column === 'fractionalSecond'" :key="column" class="fractionalSeconds" tabindex="-1" @scroll="keepFocusing">
+            <li class="hint" v-text="fractionalSecondLabelText" tabindex="-1"></li>
+            <template v-for="(s, sIndex) in fractionalSeconds">
+              <li v-if="!opts.hideDisabledFractionalSeconds || (opts.hideDisabledFractionalSeconds && !isDisabled('fractionalSecond', s))"
+                  :key="sIndex"
+                  :class="{active: fractionalSecond === s}"
+                  :tabindex="isDisabled('fractionalSecond', s) ? -1 : tabindex"
+                  :data-key="s"
+                  :disabled="isDisabled('fractionalSecond', s)"
+                  v-text="s"
+                  @click="select('fractionalSecond', s)"
+                  @keydown.tab="onTab('fractionalSecond', s, $event)"
+                  @keydown.space.prevent="select('fractionalSecond', s)"
+                  @keydown.enter.prevent="select('fractionalSecond', s)"
+                  @keydown.up.prevent="prevItem('fractionalSecond', s)"
+                  @keydown.down.prevent="nextItem('fractionalSecond', s)"
+                  @keydown.left.prevent="toLeftColumn('fractionalSecond')"
+                  @keydown.right.prevent="toRightColumn('fractionalSecond')"
                   @keydown.esc.exact="debounceBlur"
                   @blur="debounceBlur"
                   @focus="keepFocusing"></li>
@@ -2429,9 +2555,11 @@ export default {
 
 .vue__time-picker .dropdown ul.minutes,
 .vue__time-picker .dropdown ul.seconds,
+.vue__time-picker .dropdown ul.fractionalSeconds,
 .vue__time-picker .dropdown ul.apms,
 .vue__time-picker-dropdown ul.minutes,
 .vue__time-picker-dropdown ul.seconds,
+.vue__time-picker-dropdown ul.fractionalSeconds,
 .vue__time-picker-dropdown ul.apms {
   border-left: 1px solid #fff;
 }
